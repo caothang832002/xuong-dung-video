@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { api, mediaMeta, type MediaFile, type SfxFile } from '../api';
 import { mediaKind, round3 } from '../model';
 import type { Item } from '../model';
-import { addItem, getState, toast } from '../store';
+import { addItem, getState, setNotice, toast } from '../store';
 import { EFFECTS, SCENES, SFX, TEXT_PRESETS } from '../video/catalog';
 import { assetUrl } from '../video/assets';
 
@@ -14,12 +14,30 @@ type Payload =
   | { k: 'fx'; fx: string }
   | { k: 'scene'; id: string };
 
+// Trình duyệt đọc được độ dài nhưng không giải mã được hình (thường là video HEVC/H.265 quay bằng iPhone).
+export const warnUndecodable = (name: string) =>
+  setNotice({
+    title: 'Trình duyệt này không phát được hình của video',
+    lines: [
+      `Trình duyệt đọc được độ dài của "${name}" nhưng không giải mã được hình, nên video sẽ đen. Thường là do tệp nén kiểu HEVC (H.265), kiểu mặc định của iPhone.`,
+      'Cách 1: đổi video sang MP4 kiểu H.264 rồi nhập lại (dùng HandBrake, CapCut hoặc một trang đổi đuôi video; chọn "H.264").',
+      'Cách 2: mở trang này bằng Microsoft Edge sau khi cài "HEVC Video Extensions" từ Microsoft Store, rồi nhập lại tệp.',
+      'Để các video quay sau không bị nữa: trên iPhone vào Cài đặt → Camera → Định dạng → chọn "Tương thích nhất".',
+    ],
+  });
+
+const playable = async (file: string) => {
+  const meta = await mediaMeta(file, 'video');
+  return !!meta.w && !!meta.h;
+};
+
 export const dropFromLibrary = async (p: Payload, at?: number, track?: string) => {
   const proj = getState().project;
   if (p.k === 'media') {
     const kind = mediaKind(p.file);
     if (!kind) return;
     const meta = await mediaMeta(p.file, kind);
+    if (kind === 'video' && !(meta.w && meta.h)) return warnUndecodable(p.name);
     const base: Partial<Item> = { name: p.name, src: p.file };
     if (kind === 'video') {
       // video ngang trong khung dọc (hoặc ngược lại) thì để vừa khung, còn lại phủ kín
@@ -76,10 +94,19 @@ export const Library: React.FC = () => {
   const [sfx, setSfx] = useState<SfxFile[]>([]);
   const [busy, setBusy] = useState(0);
   const [over, setOver] = useState(false);
+  const [bad, setBad] = useState<Record<string, boolean>>({});
   const input = useRef<HTMLInputElement>(null);
   const audio = useRef<HTMLAudioElement | null>(null);
 
-  const refresh = () => api.media().then(setMedia).catch(() => {});
+  const refresh = () =>
+    api
+      .media()
+      .then((list) => {
+        setMedia(list);
+        for (const m of list)
+          if (mediaKind(m.name) === 'video') playable(m.file).then((ok) => (ok ? null : setBad((b) => (b[m.file] ? b : { ...b, [m.file]: true }))));
+      })
+      .catch(() => {});
   useEffect(() => {
     refresh();
     api.sfx().then(setSfx).catch(() => {});
@@ -96,7 +123,11 @@ export const Library: React.FC = () => {
     setBusy(list.length);
     for (const f of list) {
       try {
-        await api.upload(f);
+        const up = await api.upload(f);
+        if (mediaKind(up.name) === 'video' && !(await playable(up.file))) {
+          setBad((b) => ({ ...b, [up.file]: true }));
+          warnUndecodable(up.name);
+        }
       } catch (e: any) {
         toast(`Không nhập được ${f.name}: ${e.message}`);
       }
@@ -158,6 +189,11 @@ export const Library: React.FC = () => {
                   <button className="add" onClick={() => dropFromLibrary({ k: 'media', file: m.file, name: m.name })} title="Thêm vào đầu phát">
                     ＋
                   </button>
+                  {bad[m.file] ? (
+                    <button className="badwarn" onClick={() => warnUndecodable(m.name)} title="Bấm để xem cách xử lý">
+                      ⚠ Không phát được
+                    </button>
+                  ) : null}
                   <span className="cap">{m.name}</span>
                 </div>
               ))}

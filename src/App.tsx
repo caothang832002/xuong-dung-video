@@ -14,6 +14,7 @@ import {
   removeItems,
   select,
   setEditing,
+  setNotice,
   setSaving,
   splitAt,
   getTime,
@@ -151,6 +152,7 @@ export const App: React.FC = () => {
     }
   });
   const toastMsg = useStore((s) => s.toast);
+  const notice = useStore((s) => s.notice);
   const project = useStore((s) => s.project);
   const dirty = useStore((s) => s.dirty);
   const mtimeRef = useRef(0);
@@ -291,6 +293,21 @@ export const App: React.FC = () => {
       </main>
       <Timeline />
       {toastMsg ? <div className="toast">{toastMsg}</div> : null}
+      {notice ? (
+        <div className="modal-back" onClick={() => setNotice(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>⚠ {notice.title}</h2>
+            {notice.lines.map((l, i) => (
+              <p key={i} className={i ? 'hint big' : ''}>
+                {l}
+              </p>
+            ))}
+            <button className="btn primary wide" onClick={() => setNotice(null)}>
+              Đã hiểu
+            </button>
+          </div>
+        </div>
+      ) : null}
       {exporting ? <ExportDialog name={project.name} onClose={() => setExporting(false)} /> : null}
     </div>
   );

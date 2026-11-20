@@ -15,6 +15,7 @@ export type State = {
   saving: boolean;
   mtime: number;
   toast: string | null;
+  notice: { title: string; lines: string[] } | null; // hộp báo cần người dùng đọc kỹ
   clipboard: Item[];
 };
 
@@ -30,6 +31,7 @@ let state: State = {
   saving: false,
   mtime: 0,
   toast: null,
+  notice: null,
   clipboard: [],
 };
 
@@ -82,6 +84,8 @@ export const toast = (msg: string) => {
   set({ toast: msg });
   toastTimer = setTimeout(() => set({ toast: null }), 3200);
 };
+
+export const setNotice = (notice: State['notice']) => set({ notice });
 
 // ---- lịch sử
 const LIMIT = 120;
