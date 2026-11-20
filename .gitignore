@@ -1,0 +1,8 @@
+node_modules/
+dist/
+xuat/
+public/media/
+public/sfx/
+du_an/*.tmp
+du_an/*.da_xoa
+du_an/vi_du.json
