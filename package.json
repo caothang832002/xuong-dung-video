@@ -1,6 +1,7 @@
 {
   "name": "xuong-dung-video",
   "private": true,
+  "license": "Apache-2.0",
   "version": "1.0.0",
   "type": "module",
   "description": "Xưởng dựng video: sửa video Remotion bằng kéo thả, giống các app dựng phim quen thuộc",
