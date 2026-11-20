@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureSfx, sfxDuration } from './sfx.mjs';
 import { renderProject } from './render.mjs';
-import { demoProject } from './demo.mjs';
+import { demoProject } from '../shared/demo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIR = {

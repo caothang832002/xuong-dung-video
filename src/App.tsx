@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { api, type ExportJob } from './api';
+import { IS_WEB, api, type ExportJob } from './api';
 import { emptyProject } from './model';
 import {
   copySel,
@@ -69,9 +69,9 @@ const ExportDialog: React.FC<{ name: string; onClose: () => void }> = ({ name, o
           </>
         ) : job?.file && !job.running ? (
           <>
-            <p>Đã xong. Tệp nằm ở thư mục <code>xuat/</code> của công cụ.</p>
-            <video src={`/${job.file}?t=${Date.now()}`} controls className="result" />
-            <a className="btn primary wide" href={`/${job.file}`} download={`${name}.mp4`}>
+            <p>{IS_WEB ? 'Đã xong. Bấm nút dưới để tải về máy.' : <>Đã xong. Tệp nằm ở thư mục <code>xuat/</code> của công cụ.</>}</p>
+            <video src={IS_WEB ? job.file : `/${job.file}?t=${Date.now()}`} controls className="result" />
+            <a className="btn primary wide" href={IS_WEB ? job.file : `/${job.file}`} download={`${name}.mp4`}>
               ⬇ Tải {name}.mp4
             </a>
           </>
@@ -83,7 +83,7 @@ const ExportDialog: React.FC<{ name: string; onClose: () => void }> = ({ name, o
             <p className="hint">
               {pct}% · {job?.message || 'Đang chuẩn bị…'}
             </p>
-            <p className="hint">Lần xuất đầu tiên lâu hơn vì phải chuẩn bị bộ dựng hình.</p>
+            <p className="hint">{IS_WEB ? 'Video được dựng ngay trong trình duyệt. Giữ nguyên thẻ này cho tới khi xong.' : 'Lần xuất đầu tiên lâu hơn vì phải chuẩn bị bộ dựng hình.'}</p>
           </>
         )}
         <button className="btn wide" onClick={onClose}>
@@ -116,6 +116,11 @@ const TopBar: React.FC<{ projects: string[]; onOpen: (n: string) => void; onNew:
         <option value="__new">＋ Dự án mới…</option>
       </select>
       <span className="chip soft">{count} khối</span>
+      {IS_WEB ? (
+        <span className="chip soft" title="Dự án và tệp bạn nhập được lưu ngay trong trình duyệt này, không gửi đi đâu. Đổi máy hoặc xoá dữ liệu trình duyệt thì sẽ mất.">
+          🌐 Bản web · lưu trong trình duyệt này
+        </span>
+      ) : null}
       <span className="grow" />
       <button className="btn ghost" onClick={undo} disabled={!canUndo} title="Hoàn tác (Ctrl+Z)">
         ↩ Hoàn tác
@@ -184,6 +189,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     (async () => {
+      await api.init().catch((e) => toast(`Không mở được kho lưu của trình duyệt: ${e.message}`));
       const list = await api.projects().catch(() => []);
       setProjects(list.map((p) => p.name));
       const want = new URLSearchParams(location.search).get('du_an');
@@ -202,7 +208,7 @@ export const App: React.FC = () => {
 
   // Claude (hay ai đó) sửa tệp dự án từ bên ngoài thì nạp lại ngay
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || IS_WEB) return;
     const t = setInterval(async () => {
       const st = getState();
       if (st.dirty || st.saving) return;

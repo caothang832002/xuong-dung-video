@@ -2,9 +2,20 @@
 
 Công cụ sửa video Remotion bằng kéo thả, kiểu các app dựng phim quen thuộc: Claude dựng bản đầu, bạn tự chỉnh chữ, cắt ghép, thêm hiệu ứng ngay trên màn hình mà không phải ra lệnh từng chút.
 
-## Chạy
+## Mở trên web
+
+**https://caothang832002.github.io/xuong-dung-video/** — mở là dùng, không cần cài gì.
+
+Bản web chạy hoàn toàn trong trình duyệt: dự án và tệp bạn nhập được lưu ngay trong trình duyệt đó (không gửi lên máy chủ nào), và video được xuất ra MP4 ngay trong trình duyệt. Nên dùng Chrome hoặc Edge trên máy tính. Đổi máy, đổi trình duyệt hoặc xoá dữ liệu duyệt web thì dự án không còn.
+
+Mỗi lần `main` thay đổi, GitHub Actions tự dựng lại và đăng bản mới (`.github/workflows/pages.yml`).
+
+## Chạy trên máy
+
+Bản chạy trên máy lưu dự án thành tệp, nên Claude sửa được cùng bạn, và xuất video bằng bộ dựng đầy đủ của Remotion.
 
 ```bash
+git clone https://github.com/caothang832002/xuong-dung-video
 cd xuong-dung-video
 npm ci        # chỉ lần đầu
 npm start     # mở http://localhost:3711
@@ -27,7 +38,7 @@ Phím tắt: `Phím cách` phát/dừng · `←` `→` từng khung (giữ Shift
 
 Mọi thay đổi tự lưu. Bấm **Xuất video** để ra MP4 (H.264 + AAC) trong `xuat/`.
 
-## Làm việc cùng Claude
+## Làm việc cùng Claude (bản chạy trên máy)
 
 Mỗi dự án là một tệp `du_an/<tên>.json`. Xưởng và Claude cùng sửa tệp này:
 
@@ -78,9 +89,10 @@ npm run render -- bai_anh_sang     # ra xuat/bai_anh_sang.mp4
 | `src/video/catalog.ts` | Danh mục phông, kiểu chữ, hiệu ứng, cảnh, tiếng động |
 | `src/store.ts` | Trạng thái, hoàn tác, mọi thao tác trên thanh thời gian |
 | `src/ui/*` | Thư viện, khung xem, bảng thuộc tính, thanh thời gian |
-| `server/index.mjs` | Máy chủ: lưu dự án, nhập tệp, xuất video |
-| `server/sfx.mjs` | Tự tổng hợp bộ tiếng động |
+| `src/api.ts` | Lớp lưu trữ: bản máy gọi máy chủ, bản web dùng IndexedDB và xuất trong trình duyệt |
+| `server/index.mjs` | Máy chủ của bản chạy trên máy: lưu dự án, nhập tệp, xuất video |
+| `shared/sfx-synth.mjs` | Tự tổng hợp bộ tiếng động (dùng chung cho cả hai bản) |
 
 Muốn thêm kiểu chữ hay hiệu ứng mới: thêm một mục vào `catalog.ts` (hiệu ứng thì thêm một nhánh trong `useStageFx` của `MainVideo.tsx`).
 
-Remotion miễn phí cho cá nhân và nhóm đến 3 người; tổ chức lớn hơn cần giấy phép của Remotion.
+Remotion miễn phí cho cá nhân và nhóm đến 3 người; bản web khai báo `free-license` theo điều kiện đó (`src/api.ts`). Tổ chức lớn hơn cần mua giấy phép của Remotion và thay khoá.

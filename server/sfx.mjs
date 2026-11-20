@@ -1,132 +1,18 @@
-// Tự tổng hợp bộ tiếng động (không dùng tệp bên ngoài, không vướng bản quyền).
+// Ghi bộ tiếng động ra thư mục public/sfx khi chạy lần đầu.
 import fs from 'node:fs';
 import path from 'node:path';
-
-const SR = 44100;
-
-const wav = (samples) => {
-  const buf = Buffer.alloc(44 + samples.length * 2);
-  buf.write('RIFF', 0);
-  buf.writeUInt32LE(36 + samples.length * 2, 4);
-  buf.write('WAVEfmt ', 8);
-  buf.writeUInt32LE(16, 16);
-  buf.writeUInt16LE(1, 20);
-  buf.writeUInt16LE(1, 22);
-  buf.writeUInt32LE(SR, 24);
-  buf.writeUInt32LE(SR * 2, 28);
-  buf.writeUInt16LE(2, 32);
-  buf.writeUInt16LE(16, 34);
-  buf.write('data', 36);
-  buf.writeUInt32LE(samples.length * 2, 40);
-  let peak = 0;
-  for (const s of samples) peak = Math.max(peak, Math.abs(s));
-  const g = peak > 0 ? 0.85 / peak : 1;
-  for (let i = 0; i < samples.length; i++) buf.writeInt16LE(Math.round(Math.max(-1, Math.min(1, samples[i] * g)) * 32767), 44 + i * 2);
-  return buf;
-};
-
-const make = (dur, fn) => {
-  const n = Math.round(dur * SR);
-  const out = new Float64Array(n);
-  for (let i = 0; i < n; i++) out[i] = fn(i / SR, i, n);
-  // mờ 4 ms hai đầu để không lách tách
-  const e = Math.round(0.004 * SR);
-  for (let i = 0; i < e && i < n; i++) {
-    out[i] *= i / e;
-    out[n - 1 - i] *= i / e;
-  }
-  return out;
-};
-
-// Số ngẫu nhiên có hạt giống để tệp sinh ra lần nào cũng giống nhau.
-const rng = (seed) => () => {
-  seed = (seed * 1664525 + 1013904223) >>> 0;
-  return seed / 4294967296 - 0.5;
-};
-
-const tone = (f, t) => Math.sin(2 * Math.PI * f * t);
-
-const noiseSweep = (dur, f0, f1, seed) => {
-  const r = rng(seed);
-  let lp = 0;
-  let bp = 0;
-  return make(dur, (t) => {
-    const p = t / dur;
-    const fc = f0 * Math.pow(f1 / f0, p);
-    const k = Math.min(0.99, (2 * Math.PI * fc) / SR);
-    const x = r() * 2;
-    lp += k * (x - lp);
-    bp += k * 0.25 * (lp - bp);
-    return (lp - bp) * Math.sin(Math.PI * p) ** 1.5;
-  });
-};
-
-const mix = (dur, parts) => {
-  const out = new Float64Array(Math.round(dur * SR));
-  for (const [at, s, gain = 1] of parts) {
-    const o = Math.round(at * SR);
-    for (let i = 0; i < s.length && o + i < out.length; i++) out[o + i] += s[i] * gain;
-  }
-  return out;
-};
-
-const bell = (f, dur, decay = 6) => make(dur, (t) => (tone(f, t) + 0.4 * tone(f * 2.01, t) + 0.2 * tone(f * 3.02, t)) * Math.exp(-t * decay));
-
-const SOUNDS = {
-  pop: () => make(0.16, (t) => tone(520 * Math.exp(-t * 14) + 120, t) * Math.exp(-t * 26)),
-  ting: () => bell(1568, 0.9, 5),
-  click: () => {
-    const r = rng(7);
-    return make(0.05, (t) => (r() * 0.7 + tone(2400, t) * 0.6) * Math.exp(-t * 160));
-  },
-  whoosh: () => noiseSweep(0.55, 400, 5200, 11),
-  vut_len: () => make(0.4, (t) => tone(300 + 2600 * (t / 0.4) ** 2, t) * Math.sin((Math.PI * t) / 0.4) * 0.8),
-  dung: () => mix(0.7, [[0, bell(784, 0.3, 9)], [0.13, bell(1175, 0.55, 6)]]),
-  sai: () => make(0.45, (t) => (Math.sign(tone(150, t)) * 0.5 + Math.sign(tone(155, t)) * 0.5) * Math.exp(-t * 4) * (t < 0.2 || t > 0.25 ? 1 : 0.1)),
-  tada: () => mix(1.4, [[0, bell(523, 0.5, 7)], [0.1, bell(659, 0.5, 7)], [0.2, bell(784, 0.5, 7)], [0.32, bell(1047, 1.05, 3.2), 1.2], [0.32, bell(784, 1.05, 3.2), 0.6]]),
-  lap_lanh: () => mix(1.2, [2093, 2637, 3136, 2349, 3520, 2794, 4186].map((f, i) => [i * 0.09, bell(f, 0.55, 8), 0.8])),
-  go_phim: () => {
-    const r = rng(23);
-    const one = (seed) => {
-      const q = rng(seed);
-      return make(0.04, (t) => (q() + tone(1800 + seed * 40, t) * 0.4) * Math.exp(-t * 190));
-    };
-    const parts = [];
-    let at = 0;
-    for (let i = 0; i < 9; i++) {
-      parts.push([at, one(i + 3), 0.7 + r() * 0.4]);
-      at += 0.07 + (r() + 0.5) * 0.06;
-    }
-    return mix(at + 0.06, parts);
-  },
-  tang_dan: () => {
-    const n = noiseSweep(1.6, 200, 7000, 31);
-    const s = make(1.6, (t) => tone(110 + 500 * (t / 1.6) ** 2, t) * (t / 1.6) ** 2 * 0.5);
-    const env = make(1.6, (t) => (t / 1.6) ** 1.8);
-    const out = new Float64Array(n.length);
-    for (let i = 0; i < out.length; i++) out[i] = (n[i] * 1.6 + s[i]) * env[i];
-    return out;
-  },
-  bum: () => {
-    const r = rng(41);
-    let lp = 0;
-    return make(1.1, (t) => {
-      lp += 0.04 * (r() * 2 - lp);
-      return tone(95 * Math.exp(-t * 5) + 38, t) * Math.exp(-t * 3.2) + lp * Math.exp(-t * 9) * 0.9;
-    });
-  },
-};
+import { SFX_NAMES, synthSfx } from '../shared/sfx-synth.mjs';
 
 export const ensureSfx = (dir) => {
   fs.mkdirSync(dir, { recursive: true });
   let made = 0;
-  for (const [name, fn] of Object.entries(SOUNDS)) {
+  for (const name of SFX_NAMES) {
     const file = path.join(dir, `${name}.wav`);
     if (fs.existsSync(file)) continue;
-    fs.writeFileSync(file, wav(fn()));
+    fs.writeFileSync(file, synthSfx(name).bytes);
     made++;
   }
   return made;
 };
 
-export const sfxDuration = (file) => (fs.statSync(file).size - 44) / 2 / SR;
+export const sfxDuration = (file) => (fs.statSync(file).size - 44) / 2 / 44100;

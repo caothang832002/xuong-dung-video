@@ -5,6 +5,7 @@ import { mediaKind, round3 } from '../model';
 import type { Item } from '../model';
 import { addItem, getState, toast } from '../store';
 import { EFFECTS, SCENES, SFX, TEXT_PRESETS } from '../video/catalog';
+import { assetUrl } from '../video/assets';
 
 type Payload =
   | { k: 'media'; file: string; name: string }
@@ -53,7 +54,7 @@ const drag = (p: Payload) => ({
   },
 });
 
-const url = (file: string) => '/' + file.split('/').map(encodeURIComponent).join('/');
+const url = (file: string) => assetUrl(file);
 
 const TABS = [
   { id: 'nguon', icon: '📁', label: 'Nguồn' },

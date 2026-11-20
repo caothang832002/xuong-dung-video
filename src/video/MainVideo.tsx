@@ -4,14 +4,10 @@ import type { CSSProperties } from 'react';
 import type { Item, Project } from '../model';
 import { presetOf } from './catalog';
 import { useFontsReady } from './fonts';
+import { IS_WEB, assetUrl } from './assets';
+import { Audio as WebAudio, Video as WebVideo } from '@remotion/media';
 
 export type VideoProps = { project: Project; assetBase?: string };
-
-const srcUrl = (src: string, base?: string) => {
-  if (/^(https?:|data:|blob:)/.test(src)) return src;
-  const path = src.split('/').map(encodeURIComponent).join('/');
-  return `${base || ''}/${path}`;
-};
 
 const ANIM = 0.35; // giây cho chuyển động vào/ra
 
@@ -47,16 +43,27 @@ const Visual: React.FC<{ it: Item; base?: string; muted: boolean }> = ({ it, bas
   return (
     <div data-item-id={it.id} style={box}>
       {it.type === 'video' && it.src ? (
-        <OffthreadVideo
-          src={srcUrl(it.src, base)}
-          trimBefore={Math.round((it.trim || 0) * fps)}
-          playbackRate={it.speed || 1}
-          volume={fadeVolume(it, fps, muted)}
-          style={media}
-          pauseWhenBuffering
-        />
+        IS_WEB ? (
+          <WebVideo
+            src={assetUrl(it.src, base)}
+            trimBefore={Math.round((it.trim || 0) * fps)}
+            playbackRate={it.speed || 1}
+            volume={fadeVolume(it, fps, muted)}
+            style={{ width: '100%', height: '100%', display: 'block' }}
+            objectFit={it.fit || 'cover'}
+          />
+        ) : (
+          <OffthreadVideo
+            src={assetUrl(it.src, base)}
+            trimBefore={Math.round((it.trim || 0) * fps)}
+            playbackRate={it.speed || 1}
+            volume={fadeVolume(it, fps, muted)}
+            style={media}
+            pauseWhenBuffering
+          />
+        )
       ) : it.type === 'image' && it.src ? (
-        <Img src={srcUrl(it.src, base)} style={media} />
+        <Img src={assetUrl(it.src, base)} style={media} />
       ) : (
         <div style={{ ...media, background: it.fill || '#000' }} />
       )}
@@ -283,7 +290,7 @@ export const MainVideo: React.FC<VideoProps> = ({ project, assetBase }) => {
       {sorted
         .filter((it) => it.type === 'audio' && it.src && !trackOf.get(it.track)?.muted && !trackOf.get(it.track)?.hidden)
         .map((it) =>
-          seq(it, <Audio src={srcUrl(it.src!, assetBase)} trimBefore={Math.round((it.trim || 0) * fps)} playbackRate={it.speed || 1} volume={fadeVolume(it, fps, false)} />),
+          seq(it, React.createElement((IS_WEB ? WebAudio : Audio) as any, { src: assetUrl(it.src!, assetBase), trimBefore: Math.round((it.trim || 0) * fps), playbackRate: it.speed || 1, volume: fadeVolume(it, fps, false) })),
         )}
     </AbsoluteFill>
   );
